@@ -1,0 +1,34 @@
+:root { color-scheme: dark; font-family: Inter, "Segoe UI", sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; color: #f8fafc; background: #0b1220; user-select: none; }
+header { display: flex; align-items: center; justify-content: space-between; padding: 22px 20px 16px; background: linear-gradient(145deg,#17233a,#101827); border-bottom: 1px solid #26334a; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.ball { display: grid; place-items: center; width: 42px; height: 42px; font-size: 23px; border-radius: 13px; background: #22c55e; box-shadow: 0 8px 24px #22c55e33; }
+h1 { margin: 0; font-size: 20px; letter-spacing: -.4px; } header p { margin: 3px 0 0; color: #94a3b8; font-size: 12px; }
+button { font: inherit; cursor: pointer; }
+.icon-button { width: 38px; height: 38px; border: 1px solid #334155; border-radius: 11px; color: #cbd5e1; background: #1e293b; font-size: 22px; }
+.icon-button:hover { border-color: #22c55e; color: #fff; }
+.header-actions { display: flex; gap: 7px; }
+nav { display: flex; gap: 8px; padding: 14px 20px 5px; }
+.tab { padding: 8px 15px; border: 0; border-radius: 999px; color: #94a3b8; background: transparent; font-size: 13px; }
+.tab.active { color: #052e16; background: #4ade80; font-weight: 700; }
+main { height: calc(100vh - 154px); padding: 12px 20px 58px; overflow-y: auto; overflow-x: hidden; }
+.section-title { display: flex; justify-content: space-between; margin: 3px 2px 12px; color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+#live-count { color: #fb7185; }
+#data-mode { margin-right: 7px; padding: 3px 6px; color: #fbbf24; border-radius: 6px; background: #78350f; font-size: 9px; }
+#data-mode.real { color: #86efac; background: #14532d; }
+#data-mode.error { color: #fecaca; background: #7f1d1d; }
+#status { color: #94a3b8; text-align: center; font-size: 13px; }
+.game { position: relative; margin-bottom: 10px; padding: 14px; border: 1px solid #26344a; border-radius: 14px; background: #121c2e; }
+.game.live { border-color: #3f3448; background: linear-gradient(145deg,#1b1c31,#121c2e); }
+.competition { margin: 0 35px 11px 0; color: #60a5fa; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.team { display: flex; align-items: center; justify-content: space-between; margin: 7px 36px 7px 0; font-size: 14px; }.team-name { display: flex; align-items: center; gap: 8px; }.team-logo { width: 20px; height: 20px; object-fit: contain; }.score { font-weight: 800; font-size: 16px; }
+.state { display: inline-block; margin-top: 8px; padding: 4px 8px; color: #94a3b8; border-radius: 999px; background: #1e293b; font-size: 10px; }
+.state.live { color: #fecdd3; background: #881337; }.favorite { position: absolute; top: 12px; right: 12px; border: 0; color: #475569; background: transparent; font-size: 21px; }.favorite.marked { color: #facc15; }
+footer { position: fixed; right: 0; bottom: 0; left: 0; display: flex; align-items: center; gap: 7px; padding: 13px 20px; color: #64748b; background: #0b1220ee; border-top: 1px solid #1e293b; font-size: 11px; }
+.online-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+dialog { width: 350px; padding: 22px; color: #f8fafc; border: 1px solid #334155; border-radius: 16px; background: #111c2e; box-shadow: 0 18px 60px #000b; }
+dialog::backdrop { background: #020617b8; } dialog h2 { margin: 0 0 8px; font-size: 18px; } dialog p { color: #94a3b8; font-size: 12px; line-height: 1.5; }
+#api-key, #server-url { width: 100%; margin-top: 6px; padding: 11px; color: #fff; border: 1px solid #334155; border-radius: 9px; outline: none; background: #0b1220; } #api-key:focus, #server-url:focus { border-color: #4ade80; }
+dialog label { color: #cbd5e1; font-size: 11px; }.connect-server { width: 100%; margin-top: 8px; padding: 9px; color: #052e16; border: 0; border-radius: 8px; background: #4ade80; font-weight: 700; }.separator { display: flex; align-items: center; gap: 8px; margin: 15px 0 8px; color: #64748b; font-size: 10px; }.separator::before,.separator::after { content: ''; height: 1px; flex: 1; background: #334155; }
+#api-feedback { min-height: 18px; color: #fca5a5; }.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }.dialog-actions button { padding: 8px 13px; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; background: #1e293b; }.dialog-actions #save-api { color: #052e16; border-color: #4ade80; background: #4ade80; font-weight: 700; }

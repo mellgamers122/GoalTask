@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https://crests.football-data.org data:; style-src 'self'; script-src 'self'">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GoalTask</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header>
+      <div class="brand"><span class="ball">⚽</span><div><h1>GoalTask</h1><p>Futebol sem perder o foco.</p></div></div>
+      <div class="header-actions"><button id="settings" class="icon-button" title="Configurar API">⚙</button><button id="refresh" class="icon-button" title="Atualizar">↻</button></div>
+    </header>
+    <nav aria-label="Filtros">
+      <button class="tab active" data-filter="all">Jogos</button>
+      <button class="tab" data-filter="favorites">Favoritos</button>
+    </nav>
+    <main>
+      <div class="section-title"><span>PARTIDAS DE INTERESSE</span><span><b id="data-mode">DEMO</b> <span id="live-count"></span></span></div>
+      <p id="status" role="status"></p>
+      <section id="games"></section>
+    </main>
+    <footer><span class="online-dot"></span><span id="updated">Pronto</span></footer>
+    <dialog id="api-dialog">
+      <form method="dialog">
+        <h2>Conectar GoalTask</h2>
+        <p>O servidor compartilhado já vem conectado. Use esta opção apenas para trocar de servidor.</p>
+        <label for="server-url">URL do servidor</label>
+        <input id="server-url" type="url" autocomplete="off" placeholder="https://goaltask-api.seunome.workers.dev">
+        <button id="save-server" class="connect-server" type="button">Conectar servidor</button>
+        <div class="separator"><span>ou use um token individual</span></div>
+        <input id="api-key" type="password" autocomplete="off" placeholder="API key" required>
+        <p id="api-feedback" role="status"></p>
+        <div class="dialog-actions"><button value="cancel">Cancelar</button><button id="save-api" value="default">Conectar</button></div>
+      </form>
+    </dialog>
+    <script src="renderer.js"></script>
+  </body>
+</html>
