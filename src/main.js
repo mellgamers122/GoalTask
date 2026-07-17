@@ -258,10 +258,13 @@ ipcMain.handle('fetch-games', async () => {
       const score = item.score?.fullTime || {};
       return {
         id: item.id,
+        utcDate: item.utcDate,
         competition: item.competition?.name || 'Competição',
         round: item.stage ? item.stage.replaceAll('_', ' ') : '',
         home: item.homeTeam?.shortName || item.homeTeam?.name || 'A definir',
         away: item.awayTeam?.shortName || item.awayTeam?.name || 'A definir',
+        homeId: item.homeTeam?.id || `home-${item.id}`,
+        awayId: item.awayTeam?.id || `away-${item.id}`,
         homeScore: score.home,
         awayScore: score.away,
         homeLogo: item.homeTeam?.crest || null,
