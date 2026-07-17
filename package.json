@@ -1,6 +1,6 @@
 {
   "name": "goaltask",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Placares de futebol na bandeja do Windows",
   "main": "src/main.js",
   "scripts": {
