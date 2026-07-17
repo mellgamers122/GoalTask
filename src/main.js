@@ -7,6 +7,7 @@ const {
   Menu,
   nativeImage,
   Notification,
+  shell,
   net,
   screen,
   Tray,
@@ -278,6 +279,32 @@ ipcMain.handle('fetch-games', async () => {
     return { mode: 'live', games };
   } catch (error) {
     return { mode: 'error', games: [], message: `Não foi possível consultar a API: ${error.message}` };
+  }
+});
+
+ipcMain.handle('fetch-news', async (_event, teams = []) => {
+  const serverUrl = getServerUrl();
+  if (!serverUrl) return { mode: 'error', news: [], message: 'Conecte o servidor GoalTask para carregar notícias.' };
+  const names = Array.isArray(teams) ? teams.filter((name) => typeof name === 'string').slice(0, 8) : [];
+  const query = names.length ? `${names.join(' OR ')} futebol` : 'futebol Brasil';
+  try {
+    const response = await net.fetch(`${serverUrl}/news?q=${encodeURIComponent(query)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Servidor respondeu ${response.status}`);
+    return { mode: 'live', news: data.news || [] };
+  } catch (error) {
+    return { mode: 'error', news: [], message: `Não foi possível carregar notícias: ${error.message}` };
+  }
+});
+
+ipcMain.handle('open-external', async (_event, rawUrl) => {
+  try {
+    const url = new URL(String(rawUrl));
+    if (url.protocol !== 'https:') return false;
+    await shell.openExternal(url.toString());
+    return true;
+  } catch {
+    return false;
   }
 });
 
