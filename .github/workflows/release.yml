@@ -1,49 +1,26 @@
-name: Publicar GoalTask 0.9.0
+name: Publicar atualização
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
-  publicar:
-    if: github.actor != 'github-actions[bot]'
+  publicar-windows:
     runs-on: windows-latest
     steps:
-      - name: Baixar repositorio
+      - name: Baixar o código
         uses: actions/checkout@v4
-
-      - name: Aplicar pacote da versao 0.9.0
-        shell: pwsh
-        run: |
-          Expand-Archive -LiteralPath source-v0.9.0-clean.zip -DestinationPath . -Force
-          Remove-Item source-v0.9.0-clean.zip
-          git checkout -- .github/workflows/release.yml
-
-      - name: Enviar codigo e tag
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Release GoalTask 0.9.0"
-          git push origin main
-          git tag v0.9.0
-          git push origin v0.9.0
-
       - name: Preparar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Instalar dependencias
+      - name: Instalar dependências
         run: npm ci
-
       - name: Gerar instalador e publicar release
         run: npm run publish
         env:
