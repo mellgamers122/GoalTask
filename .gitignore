@@ -1,0 +1,9 @@
+node_modules/
+out/
+outputs/
+work/
+.build-appdata/
+.nuget/
+NuGet.Config
+.env
+*.log

@@ -1,6 +1,6 @@
 # GoalTask
 
-Versão atual: **0.8.0**
+Versão atual: **0.9.0**
 
 Protótipo de placares de futebol na área de notificações do Windows. Ao clicar no ícone ao lado do relógio, um painel discreto abre acima da barra de tarefas.
 
@@ -9,9 +9,12 @@ Protótipo de placares de futebol na área de notificações do Windows. Ao clic
 - Ícone e menu na bandeja do Windows
 - Painel sem botão permanente na barra de tarefas
 - Faixa compacta sempre visível, encaixada acima da barra de tarefas
-- Jogos demonstrativos, filtro e favoritos persistentes
-- Atualização automática a cada minuto
-- Notificação do Windows por meio do botão **Simular gol**
+- Placares reais e favoritos persistentes por equipe
+- Catálogo com os 20 clubes da Série A 2026 e as 48 seleções da Copa do Mundo 2026
+- Escudos e bandeiras disponíveis localmente
+- Atualização a cada 15 segundos durante partidas ao vivo e a cada minuto nos demais períodos
+- Notícias de futebol via RSS com fonte reserva
+- Notificações de gol para equipes favoritas
 - Empacotamento para Windows com Electron Forge
 
 ## Executar
@@ -39,7 +42,7 @@ O resultado será criado em `out/make`.
 
 ## Notícias
 
-A versão 0.8.0 inclui notícias gerais de futebol e um filtro baseado nos times favoritos. A rota `/news` é fornecida pelo Worker do Cloudflare e mantém cache por 15 minutos.
+A versão 0.9.0 inclui notícias gerais de futebol via RSS. O Google Notícias é consultado pelo Worker e o Bing Notícias funciona como fonte reserva no servidor e no próprio aplicativo.
 
 ## Atualizações automáticas
 

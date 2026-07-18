@@ -282,6 +282,41 @@ ipcMain.handle('fetch-games', async () => {
   }
 });
 
+const decodeRss = (value = '') => value
+  .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+  .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&#(\d+);/g, (_match, code) => String.fromCodePoint(Number(code)))
+  .replace(/&#x([\da-f]+);/gi, (_match, code) => String.fromCodePoint(Number.parseInt(code, 16)));
+
+const rssValue = (item, tag) => decodeRss(item.match(new RegExp(`<(?:[\\w-]+:)?${tag}[^>]*>([\\s\\S]*?)<\\/(?:[\\w-]+:)?${tag}>`, 'i'))?.[1] || '').trim();
+
+function parseRssNews(xml) {
+  return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].slice(0, 30).map((match, index) => {
+    const item = match[1];
+    const rawTitle = rssValue(item, 'title');
+    const parts = rawTitle.split(' - ');
+    const rawUrl = rssValue(item, 'link');
+    const url = rawUrl.replace(/^http:\/\/www\.bing\.com\//i, 'https://www.bing.com/');
+    return {
+      id: `rss-${Date.parse(rssValue(item, 'pubDate')) || Date.now()}-${index}`,
+      title: parts.length > 1 ? parts.slice(0, -1).join(' - ') : rawTitle,
+      source: rssValue(item, 'source') || (parts.length > 1 ? parts.at(-1) : 'Bing Notícias'),
+      url,
+      publishedAt: rssValue(item, 'pubDate'),
+    };
+  }).filter((item) => item.title && /^https:\/\//i.test(item.url));
+}
+
+async function fetchRssFallback(query) {
+  const url = `https://www.bing.com/news/search?q=${encodeURIComponent(query)}&format=rss&setlang=pt-br`;
+  const response = await net.fetch(url, { headers: { accept: 'application/rss+xml, application/xml, text/xml' } });
+  if (!response.ok) throw new Error(`RSS respondeu ${response.status}`);
+  const news = parseRssNews(await response.text());
+  if (!news.length) throw new Error('RSS não retornou notícias');
+  return { mode: 'live', provider: 'Bing Notícias', news };
+}
+
 ipcMain.handle('fetch-news', async (_event, teams = []) => {
   const serverUrl = getServerUrl();
   if (!serverUrl) return { mode: 'error', news: [], message: 'Conecte o servidor GoalTask para carregar notícias.' };
@@ -291,9 +326,13 @@ ipcMain.handle('fetch-news', async (_event, teams = []) => {
     const response = await net.fetch(`${serverUrl}/news?q=${encodeURIComponent(query)}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `Servidor respondeu ${response.status}`);
-    return { mode: 'live', news: data.news || [] };
+    return { mode: 'live', provider: data.provider || 'RSS', news: data.news || [] };
   } catch (error) {
-    return { mode: 'error', news: [], message: `Não foi possível carregar notícias: ${error.message}` };
+    try {
+      return await fetchRssFallback(query);
+    } catch (rssError) {
+      return { mode: 'error', news: [], message: `Não foi possível carregar notícias: ${rssError.message}` };
+    }
   }
 });
 

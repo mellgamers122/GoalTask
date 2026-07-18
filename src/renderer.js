@@ -12,12 +12,13 @@ const teamsDialog = document.querySelector('#teams-dialog');
 const teamOptions = document.querySelector('#team-options');
 const teamSearch = document.querySelector('#team-search');
 const tabs = document.querySelectorAll('.tab');
+const teamCatalog = window.GOALTASK_TEAM_CATALOG || [];
 
 let filter = 'all';
 let favoriteTeams = JSON.parse(localStorage.getItem('goaltask:favorite-teams') || '[]').map(String);
 let games = [];
 let news = [];
-let newsMode = 'all';
+let newsProvider = 'RSS';
 let newsMessage = 'Carregando notícias…';
 let previousScores = new Map();
 let firstRealLoad = true;
@@ -25,15 +26,33 @@ let emptyMessage = 'Nenhuma partida encontrada.';
 
 const score = (value) => value == null ? '–' : value;
 const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-const isFavorite = (id) => favoriteTeams.includes(String(id));
-const involvesFavorite = (game) => isFavorite(game.homeId) || isFavorite(game.awayId);
+const normalizeTeamName = (value = '') => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
+const catalogTeamFor = (name) => {
+  const normalized = normalizeTeamName(name);
+  return teamCatalog.find((team) => [team.name, ...(team.aliases || [])].some((candidate) => normalizeTeamName(candidate) === normalized));
+};
+const favoriteKey = (name) => `team:${catalogTeamFor(name)?.code || normalizeTeamName(name).replace(/\s+/g, '-')}`;
+const isFavorite = (id, name = '') => favoriteTeams.includes(String(id)) || (name && favoriteTeams.includes(favoriteKey(name)));
+const involvesFavorite = (game) => isFavorite(game.homeId, game.home) || isFavorite(game.awayId, game.away);
 const isToday = (game) => game.utcDate && new Date(game.utcDate).toLocaleDateString('pt-BR') === new Date().toLocaleDateString('pt-BR');
 
 function availableTeams() {
-  const teams = new Map();
+  const teams = new Map(teamCatalog.map((team) => [team.code, { id: `team:${team.code}`, name: team.name, logo: team.logo, badge: team.badge, competition: team.competition }]));
   for (const game of games) {
-    teams.set(String(game.homeId), { id: String(game.homeId), name: game.home, logo: game.homeLogo, competition: game.competition });
-    teams.set(String(game.awayId), { id: String(game.awayId), name: game.away, logo: game.awayLogo, competition: game.competition });
+    for (const side of ['home', 'away']) {
+      const name = game[side];
+      const catalogTeam = catalogTeamFor(name);
+      const key = catalogTeam?.code || `api-${game[`${side}Id`]}`;
+      const existing = teams.get(key);
+      teams.set(key, {
+        id: catalogTeam ? `team:${catalogTeam.code}` : favoriteKey(name),
+        name: catalogTeam?.name || name,
+        logo: game[`${side}Logo`] || existing?.logo || '',
+        badge: catalogTeam?.badge || existing?.badge || '',
+        competition: catalogTeam?.competition || game.competition,
+        apiId: game[`${side}Id`],
+      });
+    }
   }
   return [...teams.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }
@@ -51,17 +70,18 @@ function toggleTeam(id) {
 }
 
 function teamLine(game, side) {
-  const id = game[`${side}Id`];
+  const apiId = game[`${side}Id`];
   const name = game[side];
-  const logo = game[`${side}Logo`];
+  const id = favoriteKey(name);
+  const logo = game[`${side}Logo`] || catalogTeamFor(name)?.logo || '';
   const value = game[`${side}Score`];
-  return `<div class="team"><span class="team-name">${logo ? `<img class="team-logo" src="${logo}" alt="">` : ''}${name}</span><span class="team-actions"><button class="team-favorite ${isFavorite(id) ? 'marked' : ''}" data-team-id="${id}" title="Favoritar ${name}">★</button><span class="score">${score(value)}</span></span></div>`;
+  return `<div class="team"><span class="team-name">${logo ? `<img class="team-logo" src="${logo}" alt="">` : ''}${name}</span><span class="team-actions"><button class="team-favorite ${isFavorite(apiId, name) ? 'marked' : ''}" data-team-id="${id}" title="Favoritar ${name}">★</button><span class="score">${score(value)}</span></span></div>`;
 }
 
 function renderFavoriteHeader() {
   if (filter !== 'favorites') return '';
-  const selected = availableTeams().filter((team) => isFavorite(team.id));
-  return `<div class="favorites-header"><div class="favorite-team-list">${selected.length ? selected.map((team) => `<span class="team-chip">${team.logo ? `<img src="${team.logo}" alt="">` : ''}${team.name}<button data-remove-team="${team.id}" title="Remover">×</button></span>`).join('') : '<span class="favorites-empty">Escolha seus times favoritos.</span>'}</div><button id="choose-teams" class="choose-teams">+ Adicionar times</button></div>`;
+  const selected = availableTeams().filter((team) => isFavorite(team.apiId, team.name));
+  return `<div class="favorites-header"><div class="favorite-team-list">${selected.length ? selected.map((team) => `<span class="team-chip">${team.logo ? `<img src="${team.logo}" alt="">` : team.badge ? `<span>${team.badge}</span>` : ''}${team.name}<button data-remove-team="${team.id}" title="Remover">×</button></span>`).join('') : '<span class="favorites-empty">Escolha seus times favoritos.</span>'}</div><button id="choose-teams" class="choose-teams">+ Adicionar times</button></div>`;
 }
 
 function timeAgo(value) {
@@ -73,7 +93,7 @@ function timeAgo(value) {
 }
 
 function renderNews() {
-  gamesElement.innerHTML = `<div class="news-toolbar"><button class="news-filter ${newsMode === 'all' ? 'active' : ''}" data-news-mode="all">Todas</button><button class="news-filter ${newsMode === 'favorites' ? 'active' : ''}" data-news-mode="favorites">Meus times</button></div>`;
+  gamesElement.innerHTML = '';
   statusElement.textContent = news.length ? '' : newsMessage;
   for (const item of news) {
     const card = document.createElement('button');
@@ -82,10 +102,6 @@ function renderNews() {
     card.innerHTML = `<span class="news-source">${escapeHtml(item.source)}</span><strong>${escapeHtml(item.title)}</strong><small>${timeAgo(item.publishedAt)}</small>`;
     gamesElement.appendChild(card);
   }
-  gamesElement.querySelectorAll('[data-news-mode]').forEach((button) => button.addEventListener('click', async () => {
-    newsMode = button.dataset.newsMode;
-    await refreshNews();
-  }));
   gamesElement.querySelectorAll('[data-news-url]').forEach((button) => button.addEventListener('click', () => window.goalTask.openExternal(button.dataset.newsUrl)));
 }
 
@@ -122,7 +138,7 @@ function render() {
 function renderTeamOptions() {
   const query = teamSearch.value.trim().toLocaleLowerCase('pt-BR');
   const teams = availableTeams().filter((team) => !query || `${team.name} ${team.competition}`.toLocaleLowerCase('pt-BR').includes(query));
-  teamOptions.innerHTML = teams.length ? teams.map((team) => `<button type="button" class="team-option ${isFavorite(team.id) ? 'selected' : ''}" data-team-id="${team.id}">${team.logo ? `<img src="${team.logo}" alt="">` : ''}<span><b>${team.name}</b><small>${team.competition}</small></span><strong>${isFavorite(team.id) ? '✓' : '+'}</strong></button>`).join('') : '<p>Nenhum time encontrado.</p>';
+  teamOptions.innerHTML = teams.length ? teams.map((team) => `<button type="button" class="team-option ${isFavorite(team.apiId, team.name) ? 'selected' : ''}" data-team-id="${team.id}">${team.logo ? `<img src="${team.logo}" alt="">` : team.badge ? `<span class="team-option-badge">${team.badge}</span>` : ''}<span><b>${team.name}</b><small>${team.competition}</small></span><strong>${isFavorite(team.apiId, team.name) ? '✓' : '+'}</strong></button>`).join('') : '<p>Nenhum time encontrado.</p>';
   teamOptions.querySelectorAll('[data-team-id]').forEach((button) => button.addEventListener('click', () => toggleTeam(button.dataset.teamId)));
 }
 
@@ -153,18 +169,12 @@ async function refresh() {
 async function refreshNews() {
   newsMessage = 'Buscando notícias…';
   renderNews();
-  const selectedNames = newsMode === 'favorites'
-    ? availableTeams().filter((team) => isFavorite(team.id)).map((team) => team.name)
-    : [];
-  if (newsMode === 'favorites' && !selectedNames.length) {
-    news = [];
-    newsMessage = 'Escolha pelo menos um time na aba Favoritos.';
-    renderNews();
-    return;
-  }
-  const result = await window.goalTask.fetchNews(selectedNames);
+  const result = await window.goalTask.fetchNews([]);
   news = result.news || [];
+  newsProvider = result.provider || 'RSS';
   newsMessage = result.mode === 'error' ? result.message : 'Nenhuma notícia encontrada.';
+  dataModeElement.textContent = result.mode === 'error' ? 'ERRO' : newsProvider.toUpperCase();
+  dataModeElement.className = result.mode === 'error' ? 'error' : 'online';
   updatedElement.textContent = `Atualizado às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
   renderNews();
 }
@@ -190,5 +200,12 @@ document.querySelector('#save-api').addEventListener('click', async (event) => {
 document.querySelector('#save-server').addEventListener('click', async () => { apiFeedback.textContent = 'Testando servidor…'; const result = await window.goalTask.configureServer(serverUrlInput.value); apiFeedback.textContent = result.message; if (result.ok) { setTimeout(() => apiDialog.close(), 500); await refresh(); } });
 window.goalTask.onRefresh(refresh);
 render();
-refresh();
-setInterval(refresh, 60_000);
+function scheduleNextRefresh() {
+  const delay = filter === 'news' ? 300_000 : games.some((game) => game.live) ? 15_000 : 60_000;
+  setTimeout(async () => {
+    await refresh();
+    scheduleNextRefresh();
+  }, delay);
+}
+
+refresh().finally(scheduleNextRefresh);
