@@ -270,6 +270,8 @@ ipcMain.handle('fetch-games', async () => {
         awayScore: score.away,
         homeLogo: item.homeTeam?.crest || null,
         awayLogo: item.awayTeam?.crest || null,
+        lineups: item.lineups || null,
+        broadcasts: item.broadcasts || item.tvChannels || null,
         state: live
           ? 'AO VIVO'
           : item.status === 'FINISHED' ? 'ENCERRADO' : when,

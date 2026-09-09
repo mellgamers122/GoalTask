@@ -11,6 +11,8 @@ const serverUrlInput = document.querySelector('#server-url');
 const teamsDialog = document.querySelector('#teams-dialog');
 const teamOptions = document.querySelector('#team-options');
 const teamSearch = document.querySelector('#team-search');
+const gameDialog = document.querySelector('#game-dialog');
+const gameDetailsContent = document.querySelector('#game-details-content');
 const tabs = document.querySelectorAll('.tab');
 const teamCatalog = window.GOALTASK_TEAM_CATALOG || [];
 
@@ -35,6 +37,7 @@ const favoriteKey = (name) => `team:${catalogTeamFor(name)?.code || normalizeTea
 const isFavorite = (id, name = '') => favoriteTeams.includes(String(id)) || (name && favoriteTeams.includes(favoriteKey(name)));
 const involvesFavorite = (game) => isFavorite(game.homeId, game.home) || isFavorite(game.awayId, game.away);
 const isToday = (game) => game.utcDate && new Date(game.utcDate).toLocaleDateString('pt-BR') === new Date().toLocaleDateString('pt-BR');
+const formatDateTime = (value) => new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 
 function availableTeams() {
   const teams = new Map(teamCatalog.map((team) => [team.code, { id: `team:${team.code}`, name: team.name, logo: team.logo, badge: team.badge, competition: team.competition }]));
@@ -83,6 +86,8 @@ function renderFavoriteHeader() {
   const selected = availableTeams().filter((team) => isFavorite(team.apiId, team.name));
   return `<div class="favorites-header"><div class="favorite-team-list">${selected.length ? selected.map((team) => `<span class="team-chip">${team.logo ? `<img src="${team.logo}" alt="">` : team.badge ? `<span>${team.badge}</span>` : ''}${team.name}<button data-remove-team="${team.id}" title="Remover">×</button></span>`).join('') : '<span class="favorites-empty">Escolha seus times favoritos.</span>'}</div><button id="choose-teams" class="choose-teams">+ Adicionar times</button></div>`;
 }
+function renderSuggestions(todayGames) { const items = [...todayGames].sort((a,b) => ((b.live?20:0)+(involvesFavorite(b)?10:0))-((a.live?20:0)+(involvesFavorite(a)?10:0))).slice(0,3); return items.length ? `<section class="suggestions"><div class="suggestions-title"><span>SUGESTÕES PARA VOCÊ</span><small>toque para ver mais</small></div><div class="suggestion-list">${items.map((game) => `<button class="suggestion" data-game-details="${game.id}"><span class="suggestion-reason${game.live?' live':''}">${game.live?'AO VIVO AGORA':involvesFavorite(game)?'SEU TIME JOGA':'PARTIDA DE HOJE'}</span><strong>${escapeHtml(game.home)} <b>${score(game.homeScore)} × ${score(game.awayScore)}</b> ${escapeHtml(game.away)}</strong><small>${escapeHtml(game.competition)} · ${escapeHtml(game.state)}</small></button>`).join('')}</div></section>` : ''; }
+function showGameDetails(id) { const game=games.find((item)=>String(item.id)===String(id)); if(!game)return; const channels=Array.isArray(game.broadcasts)?game.broadcasts:game.broadcasts?.channels||[]; const lineup=(team,data)=>{const people=(Array.isArray(data)?data:data?.startingXI||data?.players||[]).map((p)=>p?.player?.name||p?.name||p).filter(Boolean); return `<section class="detail-block"><h3>${escapeHtml(team)}</h3>${people.length?`<ol class="lineup-list">${people.map((p)=>`<li>${escapeHtml(p)}</li>`).join('')}</ol>`:'<p class="pending-info">A escalação oficial ainda não foi confirmada pela fonte.</p>'}</section>`}; const lineups=game.lineups||{}; gameDetailsContent.innerHTML=`<div class="details-score"><div><span>${escapeHtml(game.home)}</span><b>${score(game.homeScore)}</b></div><strong>${game.live?'AO VIVO':escapeHtml(game.state)}</strong><div><b>${score(game.awayScore)}</b><span>${escapeHtml(game.away)}</span></div></div><p class="details-competition">${escapeHtml(game.competition)}</p><div class="details-info">📅 ${escapeHtml(formatDateTime(game.utcDate))}</div><h2>Escalações</h2>${lineup(game.home,lineups.home||lineups.homeTeam)}${lineup(game.away,lineups.away||lineups.awayTeam)}<section class="detail-block"><h3>Onde assistir</h3>${channels.length?`<div class="channel-list">${channels.map((c)=>`<span>${escapeHtml(c?.name||c)}</span>`).join('')}</div>`:'<p class="pending-info">Transmissão a confirmar. O GoalTask mostrará o canal quando a fonte disponibilizar.</p>'}</section>`; gameDialog.showModal(); }
 
 function timeAgo(value) {
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
@@ -117,18 +122,19 @@ function render() {
   const visible = filter === 'favorites' ? games.filter(involvesFavorite) : todayGames;
   const liveToday = todayGames.filter((game) => game.live).length;
   liveCountElement.textContent = liveToday ? `${liveToday} AO VIVO` : '';
-  gamesElement.innerHTML = renderFavoriteHeader();
+  gamesElement.innerHTML = `${renderFavoriteHeader()}${filter === 'all' ? renderSuggestions(todayGames) : ''}`;
   statusElement.textContent = visible.length ? '' : filter === 'favorites' ? 'Nenhuma partida dos seus times no período disponível.' : emptyMessage;
 
   for (const game of visible) {
     const card = document.createElement('article');
     card.className = `game${game.live ? ' live' : ''}`;
-    card.innerHTML = `<div class="competition">${game.competition}${game.round ? ` · ${game.round}` : ''}</div>${teamLine(game, 'home')}${teamLine(game, 'away')}<span class="state${game.live ? ' live' : ''}">${game.state}</span>`;
+    card.innerHTML = `<div class="competition">${game.competition}${game.round ? ` · ${game.round}` : ''}</div>${teamLine(game, 'home')}${teamLine(game, 'away')}<div class="game-bottom"><span class="state${game.live ? ' live' : ''}">${game.state}</span><button class="details-button" data-game-details="${game.id}">Ver detalhes</button></div>`;
     gamesElement.appendChild(card);
   }
 
   gamesElement.querySelectorAll('[data-team-id]').forEach((button) => button.addEventListener('click', () => toggleTeam(button.dataset.teamId)));
   gamesElement.querySelectorAll('[data-remove-team]').forEach((button) => button.addEventListener('click', () => toggleTeam(button.dataset.removeTeam)));
+  gamesElement.querySelectorAll('[data-game-details]').forEach((button) => button.addEventListener('click', () => showGameDetails(button.dataset.gameDetails)));
   document.querySelector('#choose-teams')?.addEventListener('click', () => { teamSearch.value = ''; renderTeamOptions(); teamsDialog.showModal(); });
 
   const compactGame = games.find((game) => game.live && involvesFavorite(game)) || todayGames.find((game) => game.live) || games.find(involvesFavorite) || null;
