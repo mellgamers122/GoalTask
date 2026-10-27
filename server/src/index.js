@@ -33,7 +33,7 @@ async function findBroadcast(url, env) {
 
   const prompt = `Pesquise na web onde assistir legalmente no BRASIL a partida ${home} x ${away}, competição ${competition}, data ${date}. Use apenas fonte oficial de emissora, streaming, clube ou competição. Não invente canais. Responda SOMENTE JSON: {"status":"confirmed" ou "pending","channels":["nome"],"note":"texto curto em português"}. Se não houver fonte clara, status deve ser pending e channels deve ser [].`;
   try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(env.GEMINI_API_KEY), {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(env.GEMINI_API_KEY), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0, responseMimeType: 'application/json' } }),
