@@ -49,7 +49,21 @@ function trustedBroadcastSource(url) {
 
 function channelsFromText(text) {
   const value = String(text || '');
-  return [...new Set(CHANNEL_PATTERNS.filter(([pattern]) => pattern.test(value)).map(([, name]) => name))];
+  return [...new Set(CHANNEL_PATTERNS
+    .filter(([pattern]) => pattern.test(value))
+    .map(([, name]) => name)
+    .filter((name) => name !== 'YouTube'))];
+}
+
+async function youtubeChannelName(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    if (host !== 'youtube.com' && !host.endsWith('.youtube.com') && host !== 'youtu.be') return null;
+    const response = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(url));
+    if (!response.ok) return null;
+    const data = await response.json();
+    return typeof data.author_name === 'string' ? data.author_name.slice(0, 80) : null;
+  } catch { return null; }
 }
 
 async function findBroadcast(url, env) {
@@ -96,21 +110,28 @@ async function findBroadcast(url, env) {
         .map((page) => ({ title: page.name || page.title || 'Fonte consultada', url: page.url, text: page.snippet || page.text || '' }))
         .slice(0, 5);
     }
-    const channels = [...new Set(sources.flatMap((source) => channelsFromText(`${source.title} ${source.text}`)))];
+    const enrichedSources = await Promise.all(sources.map(async (source) => ({
+      ...source,
+      youtubeChannel: await youtubeChannelName(source.url),
+    })));
+    const channels = [...new Set(enrichedSources.flatMap((source) => [
+      ...channelsFromText(`${source.title} ${source.text}`),
+      ...(source.youtubeChannel ? [`YouTube (${source.youtubeChannel})`] : []),
+    ]))];
 
     if (channels.length) {
       return json({
         status: 'confirmed',
         channels,
         note: 'Sugestão encontrada em guia de transmissão confiável. Confira perto do jogo.',
-        sources: sources.map(({ title, url }) => ({ title, url })),
+        sources: enrichedSources.map(({ title, url }) => ({ title, url })),
       });
     }
     return json({
       status: 'pending',
       channels: [],
       note: sources.length ? 'Nenhuma transmissão encontrada nas fontes consultadas.' : 'Transmissão a confirmar.',
-      sources: sources.map(({ title, url }) => ({ title, url })),
+      sources: enrichedSources.map(({ title, url }) => ({ title, url })),
     });
   } catch (error) {
     return json({ status: 'unavailable', message: 'Falha ao consultar fontes: ' + error.message }, 502);
