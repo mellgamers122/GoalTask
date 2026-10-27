@@ -33,16 +33,16 @@ async function findBroadcast(url, env) {
 
   const prompt = `Pesquise na web onde assistir legalmente no BRASIL a partida ${home} x ${away}, competição ${competition}, data ${date}. Use apenas fonte oficial de emissora, streaming, clube ou competição. Não invente canais. Responda SOMENTE JSON: {"status":"confirmed" ou "pending","channels":["nome"],"note":"texto curto em português"}. Se não houver fonte clara, status deve ser pending e channels deve ser [].`;
   try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(env.GEMINI_API_KEY), {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0, responseMimeType: 'application/json' } }),
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+      body: JSON.stringify({ model: 'gemini-3.8-flash', input: prompt, tools: [{ type: 'google_search' }] }),
     });
     const data = await response.json();
     if (!response.ok) return json({ status: 'unavailable', message: 'Gemini respondeu ' + response.status }, 502);
-    const candidate = data.candidates?.[0];
-    const answer = parseGeminiJson(candidate?.content?.parts?.map((part) => part.text || '').join(''));
-    const sources = sourcesFrom(candidate?.groundingMetadata);
+    const output = data.output_text || data.outputText || data.steps?.flatMap((step) => step.content || []).map((part) => part.text || '').join('') || '';
+    const answer = parseGeminiJson(output);
+    const sources = sourcesFrom(data.groundingMetadata || data.steps?.flatMap((step) => step.content || []).find((part) => part.annotations)?.annotations?.map((annotation) => ({ web: { title: annotation.title, uri: annotation.url } })) || {});
     const channels = Array.isArray(answer?.channels) ? answer.channels.filter((item) => typeof item === 'string').slice(0, 8) : [];
     const confirmed = answer?.status === 'confirmed' && channels.length > 0 && sources.length > 0;
     return json({ status: confirmed ? 'confirmed' : 'pending', channels: confirmed ? channels : [], note: confirmed ? answer.note || 'Transmissão encontrada em fontes consultadas.' : 'Transmissão a confirmar.', sources });
