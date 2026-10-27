@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('goalTask', {
   fetchGames: () => ipcRenderer.invoke('fetch-games'),
   fetchNews: (teams) => ipcRenderer.invoke('fetch-news', teams),
+  findBroadcast: (game) => ipcRenderer.invoke('find-broadcast', game),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   configureApiKey: (apiKey) => ipcRenderer.invoke('configure-api-key', apiKey),
   configureServer: (serverUrl) => ipcRenderer.invoke('configure-server', serverUrl),
