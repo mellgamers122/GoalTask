@@ -336,6 +336,14 @@ ipcMain.handle('fetch-news', async (_event, teams = []) => {
   }
 });
 
+ipcMain.handle('find-broadcast', async (_event, game) => {
+  try {
+    const params = new URLSearchParams({ home: game.home || '', away: game.away || '', competition: game.competition || '', date: game.utcDate || '' });
+    const response = await net.fetch(`${getServerUrl()}/where-to-watch?${params}`);
+    return await response.json();
+  } catch (error) { return { status: 'unavailable', message: 'Não foi possível consultar a transmissão.' }; }
+});
+
 ipcMain.handle('open-external', async (_event, rawUrl) => {
   try {
     const url = new URL(String(rawUrl));
