@@ -28,7 +28,9 @@ const TRUSTED_BROADCAST_DOMAINS = [
   'espn.com.br', 'disneyplus.com', 'tntsports.com.br', 'max.com',
   'primevideo.com', 'youtube.com', 'cazetv.com.br',
   'futebol.tv.br', 'jogosdehoje.com.br', 'apwin.com', 'lance.com.br',
-  'uol.com.br', 'terra.com.br', 'cnnbrasil.com.br'
+  'uol.com.br', 'terra.com.br', 'cnnbrasil.com.br', 'sky.com.br',
+  'veja.abril.com.br', 'papodebola.com.br', 'gazetaesportiva.com',
+  'opovo.com.br', 'olhardigital.com.br', 'futebolexpert.com.br', 'dgabc.com.br'
 ];
 
 const CHANNEL_PATTERNS = [
@@ -103,7 +105,7 @@ async function findBroadcast(url, env) {
         query,
         count: 10,
         freshness: 'noLimit',
-        includeDomains: ['futebol.tv.br', 'jogosdehoje.com.br', 'apwin.com', 'lance.com.br', 'uol.com.br'],
+        includeDomains: ['futebol.tv.br', 'jogosdehoje.com.br', 'apwin.com', 'lance.com.br', 'uol.com.br', 'sky.com.br', 'veja.abril.com.br', 'papodebola.com.br', 'gazetaesportiva.com'],
       });
       sources = pages
         .filter((page) => trustedBroadcastSource(page.url))
