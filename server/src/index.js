@@ -26,7 +26,9 @@ function parseGeminiJson(text) {
 const TRUSTED_BROADCAST_DOMAINS = [
   'ge.globo.com', 'globoplay.globo.com', 'premiere.globo.com', 'sportv.globo.com',
   'espn.com.br', 'disneyplus.com', 'tntsports.com.br', 'max.com',
-  'primevideo.com', 'youtube.com', 'cazetv.com.br'
+  'primevideo.com', 'youtube.com', 'cazetv.com.br',
+  'futebol.tv.br', 'jogosdehoje.com.br', 'apwin.com', 'lance.com.br',
+  'uol.com.br', 'terra.com.br', 'cnnbrasil.com.br'
 ];
 
 const CHANNEL_PATTERNS = [
@@ -84,14 +86,14 @@ async function findBroadcast(url, env) {
       return json({
         status: 'confirmed',
         channels,
-        note: 'Canal identificado em fonte oficial.',
+        note: 'Sugestão encontrada em guia de transmissão confiável. Confira perto do jogo.',
         sources: sources.map(({ title, url }) => ({ title, url })),
       });
     }
     return json({
       status: 'pending',
       channels: [],
-      note: sources.length ? 'Nenhuma transmissão confirmada nas fontes oficiais consultadas.' : 'Transmissão a confirmar.',
+      note: sources.length ? 'Nenhuma transmissão encontrada nas fontes consultadas.' : 'Transmissão a confirmar.',
       sources: sources.map(({ title, url }) => ({ title, url })),
     });
   } catch (error) {
