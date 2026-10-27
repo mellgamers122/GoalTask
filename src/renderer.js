@@ -11,6 +11,9 @@ const serverUrlInput = document.querySelector('#server-url');
 const teamsDialog = document.querySelector('#teams-dialog');
 const teamOptions = document.querySelector('#team-options');
 const teamSearch = document.querySelector('#team-search');
+const watchDialog = document.querySelector('#watch-dialog');
+const watchGame = document.querySelector('#watch-game');
+const watchResult = document.querySelector('#watch-result');
 const tabs = document.querySelectorAll('.tab');
 const teamCatalog = window.GOALTASK_TEAM_CATALOG || [];
 
@@ -78,6 +81,16 @@ function teamLine(game, side) {
   return `<div class="team"><span class="team-name">${logo ? `<img class="team-logo" src="${logo}" alt="">` : ''}${name}</span><span class="team-actions"><button class="team-favorite ${isFavorite(apiId, name) ? 'marked' : ''}" data-team-id="${id}" title="Favoritar ${name}">★</button><span class="score">${score(value)}</span></span></div>`;
 }
 
+async function showWatch(id) {
+  const game = games.find((item) => String(item.id) === String(id)); if (!game) return;
+  watchGame.textContent = `${game.home} x ${game.away}`; watchResult.textContent = 'Buscando fontes confiáveis…'; watchDialog.showModal();
+  const result = await window.goalTask.findBroadcast(game);
+  if (result.status === 'confirmed') {
+    watchResult.innerHTML = `<b>${result.channels.join(' · ')}</b><small>${result.note || ''}</small>${(result.sources || []).map((source) => `<a href="${source.url}" data-watch-link>Fonte: ${source.title}</a>`).join('')}`;
+    watchResult.querySelectorAll('[data-watch-link]').forEach((link) => link.addEventListener('click', (event) => { event.preventDefault(); window.goalTask.openExternal(link.href); }));
+  } else watchResult.innerHTML = `<b>Transmissão a confirmar</b><small>${result.message || result.note || 'Nenhuma fonte oficial confirmou o canal ainda.'}</small>`;
+}
+
 function renderFavoriteHeader() {
   if (filter !== 'favorites') return '';
   const selected = availableTeams().filter((team) => isFavorite(team.apiId, team.name));
@@ -123,11 +136,12 @@ function render() {
   for (const game of visible) {
     const card = document.createElement('article');
     card.className = `game${game.live ? ' live' : ''}`;
-    card.innerHTML = `<div class="competition">${game.competition}${game.round ? ` · ${game.round}` : ''}</div>${teamLine(game, 'home')}${teamLine(game, 'away')}<span class="state${game.live ? ' live' : ''}">${game.state}</span>`;
+    card.innerHTML = `<div class="competition">${game.competition}${game.round ? ` · ${game.round}` : ''}</div>${teamLine(game, 'home')}${teamLine(game, 'away')}<span class="state${game.live ? ' live' : ''}">${game.state}</span><button class="watch-button" data-watch="${game.id}">Onde assistir</button>`;
     gamesElement.appendChild(card);
   }
 
   gamesElement.querySelectorAll('[data-team-id]').forEach((button) => button.addEventListener('click', () => toggleTeam(button.dataset.teamId)));
+  gamesElement.querySelectorAll('[data-watch]').forEach((button) => button.addEventListener('click', () => showWatch(button.dataset.watch)));
   gamesElement.querySelectorAll('[data-remove-team]').forEach((button) => button.addEventListener('click', () => toggleTeam(button.dataset.removeTeam)));
   document.querySelector('#choose-teams')?.addEventListener('click', () => { teamSearch.value = ''; renderTeamOptions(); teamsDialog.showModal(); });
 
