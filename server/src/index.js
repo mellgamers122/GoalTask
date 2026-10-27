@@ -23,31 +23,79 @@ function parseGeminiJson(text) {
   try { return JSON.parse(match[0]); } catch { return null; }
 }
 
+const TRUSTED_BROADCAST_DOMAINS = [
+  'ge.globo.com', 'globoplay.globo.com', 'premiere.globo.com', 'sportv.globo.com',
+  'espn.com.br', 'disneyplus.com', 'tntsports.com.br', 'max.com',
+  'primevideo.com', 'youtube.com', 'cazetv.com.br'
+];
+
+const CHANNEL_PATTERNS = [
+  [/\bpremiere\b/i, 'Premiere'], [/\bsportv\b/i, 'SporTV'],
+  [/\bgloboplay\b/i, 'Globoplay'], [/\bespn(?: brasil)?\b/i, 'ESPN'],
+  [/\bdisney\+?\b/i, 'Disney+'], [/\btnt sports\b/i, 'TNT Sports'],
+  [/\bmax\b/i, 'Max'], [/\bcazé\s?tv\b/i, 'CazéTV'],
+  [/\bprime video\b/i, 'Prime Video'], [/\byoutube\b/i, 'YouTube'],
+  [/\btv globo\b/i, 'TV Globo']
+];
+
+function trustedBroadcastSource(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    return TRUSTED_BROADCAST_DOMAINS.some((domain) => host === domain || host.endsWith('.' + domain));
+  } catch { return false; }
+}
+
+function channelsFromText(text) {
+  const value = String(text || '');
+  return [...new Set(CHANNEL_PATTERNS.filter(([pattern]) => pattern.test(value)).map(([, name]) => name))];
+}
+
 async function findBroadcast(url, env) {
-  if (!env.GEMINI_API_KEY) return json({ status: 'unavailable', message: 'Busca inteligente ainda não foi configurada.' }, 503);
+  if (!env.LANGSEARCH_API_KEY) return json({ status: 'unavailable', message: 'Busca de transmissão ainda não foi configurada.' }, 503);
   const home = (url.searchParams.get('home') || '').slice(0, 80);
   const away = (url.searchParams.get('away') || '').slice(0, 80);
   const competition = (url.searchParams.get('competition') || '').slice(0, 100);
   const date = (url.searchParams.get('date') || '').slice(0, 30);
   if (!home || !away) return json({ error: 'Informe home e away.' }, 400);
 
-  const prompt = `Pesquise na web onde assistir legalmente no BRASIL a partida ${home} x ${away}, competição ${competition}, data ${date}. Use apenas fonte oficial de emissora, streaming, clube ou competição. Não invente canais. Responda SOMENTE JSON: {"status":"confirmed" ou "pending","channels":["nome"],"note":"texto curto em português"}. Se não houver fonte clara, status deve ser pending e channels deve ser [].`;
+  const query = `Onde assistir legalmente no Brasil ${home} x ${away} ${competition} ${date}`;
   try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+    const response = await fetch('https://api.langsearch.com/v1/web-search', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-      body: JSON.stringify({ model: 'gemini-3.8-flash', input: prompt, tools: [{ type: 'google_search' }] }),
+      headers: {
+        authorization: `Bearer ${env.LANGSEARCH_API_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ query, count: 8, freshness: 'oneWeek' }),
     });
     const data = await response.json();
-    if (!response.ok) return json({ status: 'unavailable', message: 'Gemini respondeu ' + response.status }, 502);
-    const output = data.output_text || data.outputText || data.steps?.flatMap((step) => step.content || []).map((part) => part.text || '').join('') || '';
-    const answer = parseGeminiJson(output);
-    const sources = sourcesFrom(data.groundingMetadata || data.steps?.flatMap((step) => step.content || []).find((part) => part.annotations)?.annotations?.map((annotation) => ({ web: { title: annotation.title, uri: annotation.url } })) || {});
-    const channels = Array.isArray(answer?.channels) ? answer.channels.filter((item) => typeof item === 'string').slice(0, 8) : [];
-    const confirmed = answer?.status === 'confirmed' && channels.length > 0 && sources.length > 0;
-    return json({ status: confirmed ? 'confirmed' : 'pending', channels: confirmed ? channels : [], note: confirmed ? answer.note || 'Transmissão encontrada em fontes consultadas.' : 'Transmissão a confirmar.', sources });
+    if (!response.ok || String(data.code || '200') !== '200') {
+      return json({ status: 'unavailable', message: 'Busca de fontes respondeu ' + (data.code || response.status) }, 502);
+    }
+
+    const pages = Array.isArray(data?.data?.webPages?.value) ? data.data.webPages.value : [];
+    const sources = pages
+      .filter((page) => trustedBroadcastSource(page.url))
+      .map((page) => ({ title: page.name || page.title || 'Fonte oficial', url: page.url, text: page.snippet || page.text || '' }))
+      .slice(0, 5);
+    const channels = [...new Set(sources.flatMap((source) => channelsFromText(`${source.title} ${source.text}`)))];
+
+    if (channels.length) {
+      return json({
+        status: 'confirmed',
+        channels,
+        note: 'Canal identificado em fonte oficial.',
+        sources: sources.map(({ title, url }) => ({ title, url })),
+      });
+    }
+    return json({
+      status: 'pending',
+      channels: [],
+      note: sources.length ? 'Nenhuma transmissão confirmada nas fontes oficiais consultadas.' : 'Transmissão a confirmar.',
+      sources: sources.map(({ title, url }) => ({ title, url })),
+    });
   } catch (error) {
-    return json({ status: 'unavailable', message: 'Falha ao consultar Gemini: ' + error.message }, 502);
+    return json({ status: 'unavailable', message: 'Falha ao consultar fontes: ' + error.message }, 502);
   }
 }
 
