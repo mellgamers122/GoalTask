@@ -34,7 +34,7 @@ const TRUSTED_BROADCAST_DOMAINS = [
 const CHANNEL_PATTERNS = [
   [/\bpremiere\b/i, 'Premiere'], [/\bsportv\b/i, 'SporTV'],
   [/\bgloboplay\b/i, 'Globoplay'], [/\bespn(?: brasil)?\b/i, 'ESPN'],
-  [/\bdisney\+?\b/i, 'Disney+'], [/\btnt sports\b/i, 'TNT Sports'],
+  [/\bdisney\+?/i, 'Disney+'], [/\btnt sports\b/i, 'TNT Sports'],
   [/\bmax\b/i, 'Max'], [/\bcazé\s?tv\b/i, 'CazéTV'],
   [/\bprime video\b/i, 'Prime Video'], [/\byoutube\b/i, 'YouTube'],
   [/\btv globo\b/i, 'TV Globo']
@@ -62,24 +62,40 @@ async function findBroadcast(url, env) {
 
   const query = `Onde assistir legalmente no Brasil ${home} x ${away} ${competition} ${date}`;
   try {
-    const response = await fetch('https://api.langsearch.com/v1/web-search', {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${env.LANGSEARCH_API_KEY}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ query, count: 8, freshness: 'oneWeek' }),
-    });
-    const data = await response.json();
-    if (!response.ok || String(data.code || '200') !== '200') {
-      return json({ status: 'unavailable', message: 'Busca de fontes respondeu ' + (data.code || response.status) }, 502);
-    }
+    const search = async (payload) => {
+      const response = await fetch('https://api.langsearch.com/v1/web-search', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${env.LANGSEARCH_API_KEY}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok || String(data.code || '200') !== '200') {
+        throw new Error('Busca de fontes respondeu ' + (data.code || response.status));
+      }
+      return Array.isArray(data?.data?.webPages?.value) ? data.data.webPages.value : [];
+    };
 
-    const pages = Array.isArray(data?.data?.webPages?.value) ? data.data.webPages.value : [];
-    const sources = pages
+    let pages = await search({ query, count: 8, freshness: 'oneWeek' });
+    let sources = pages
       .filter((page) => trustedBroadcastSource(page.url))
-      .map((page) => ({ title: page.name || page.title || 'Fonte oficial', url: page.url, text: page.snippet || page.text || '' }))
+      .map((page) => ({ title: page.name || page.title || 'Fonte consultada', url: page.url, text: page.snippet || page.text || '' }))
       .slice(0, 5);
+
+    if (!sources.length) {
+      pages = await search({
+        query,
+        count: 10,
+        freshness: 'noLimit',
+        includeDomains: ['futebol.tv.br', 'jogosdehoje.com.br', 'apwin.com', 'lance.com.br', 'uol.com.br'],
+      });
+      sources = pages
+        .filter((page) => trustedBroadcastSource(page.url))
+        .map((page) => ({ title: page.name || page.title || 'Fonte consultada', url: page.url, text: page.snippet || page.text || '' }))
+        .slice(0, 5);
+    }
     const channels = [...new Set(sources.flatMap((source) => channelsFromText(`${source.title} ${source.text}`)))];
 
     if (channels.length) {
